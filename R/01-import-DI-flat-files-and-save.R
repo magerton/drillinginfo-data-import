@@ -16,6 +16,8 @@ DIR_SAVE_R    <- "./intermediate_data/"       # where to save .Rdata files
 DIR_SAVE_DTA  <- "./intermediate_data/dta/"   # where to save .dta files
 
 # OPTIONS
+GZIP_DTA_FILES        <- FALSE  # should we gzip the .dta files
+USE_PIGZ              <- TRUE   # TRUE: use system command for parallel zip; FALSE: use R.utils::gzip
 REPLACE_DTA_WITH_GZIP <- TRUE   # whether to delete .dta files after gzipping
 NUM_ROWS              <- -1L    # number of rows to read in (-1L is all)
 COMPRESS              <- TRUE   # compress .Rdata files on base::save()?
@@ -259,15 +261,30 @@ for (table_name in tbls) {
   f_in  <- paste0(DIR_SAVE_R,   table_name, DATE_DI_FILES, ".Rdata")
   f_out <- paste0(DIR_SAVE_DTA, table_name, DATE_DI_FILES, ".dta")
   
+  # load files
   cat(paste0(Sys.time(), " loading ", table_name, "\n"))
   load(f_in)
   
+  # write to Stata
   cat(paste0(Sys.time(), " writing to stata ", table_name, "\n"))
   haven::write_dta(eval(parse(text=table_name)), path=f_out, v=12)
   
-  cat(paste0(Sys.time(), " gzipping ", table_name, "\n"))
-  R.utils::gzip(filename = f_out, overwrite = TRUE, remove = REPLACE_DTA_WITH_GZIP)
-  
+  # compress dta files?
+  if (GZIP_DTA_FILES == TRUE) {
+    cat(paste0(Sys.time(), " gzipping ", table_name, "\n"))
+    
+    if (USE_PIGZ == TRUE) {
+      system2(command = 'pigz',
+              args = paste(
+                ifelse(REPLACE_DTA_WITH_GZIP == TRUE, "", "--keep"), 
+                f_out
+              )
+      )
+    } else {
+      R.utils::gzip(filename = f_out, overwrite = TRUE, remove = REPLACE_DTA_WITH_GZIP)
+    }
+  }
+
   cat(paste0(Sys.time(), " done. cleanup. ", table_name, "\n"))
   rm(list=table_name)
   gc()
