@@ -1,0 +1,14 @@
+**/.DS_Store
+.spyproject/**
+.Rproj.user
+.Rhistory
+*.Rproj
+*.sublime-workspace
+*.sublime-project
+**.html
+
+intermediate_data/**
+tmp/**
+
+!**/README.md
+
