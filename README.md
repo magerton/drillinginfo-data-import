@@ -4,20 +4,19 @@ This repo contains code to verify the version of Drillinginfo's DI Desktop Raw P
 
 There are three R scripts:
 
-1. [Table Schema Definitions.R](R/Table-Schema-Definitions.R) contains a re-formatted version of the DI-provided document Oracle-database table schema and descriptions of each field. It saves this information as lists of named string vectors. Imported column names and types are based on this information
-2. [R/01 import DI flat files and save.R](R/01 import DI flat files and save.R) Imports unzipped csv files, converts columns as needed, adds column labels, and saves as both `data.table` objects in .Rdata files and Stata .dta data files.
-3. [R/02 open saved DI flat files.R](R/02 open saved DI flat files.R) Post-import script opens up each saved file (including import problems) and prints class of each column in each table. Not needed.
-4. [new readme](R/README.md)
+1. [Table-Schema-Definitions.R](R/Table-Schema-Definitions.R) contains a re-formatted version of the DI-provided document Oracle-database table schema and descriptions of each field. It saves this information as lists of named string vectors. Imported column names and types are based on this information
+2. [R/01-import-DI-flat-files-and-save.R](R/01-import-DI-flat-files-and-save.R) Imports unzipped csv files, converts columns as needed, adds column labels, and saves as both `data.table` objects in .Rdata files and Stata .dta data files.
+3. [R/02-open-saved-DI-flat-files.R](R/02-open-saved-DI-flat-files.R) Post-import script opens up each saved file (including import problems) and prints class of each column in each table. Not needed.
 
 Workflow
 
 1. Clone this repo to your machine
 2. After downloading both zipfiles, verify their checksums against [those listed below](#checksums) to ensure complete download and verify the date of the DI flat files.
     a. On Ubuntu, use `md5sum`
-    b. On Windows, the [hashcheck](http://code.kliu.org/hashcheck/) program integrates with File Explorer and will generate md5 checksum files.
-    c. On OS X, use `md5` from teh command prompt
+    b. On Windows, there are a few 3rd party programs that compute hashes. One is [hashcheck](http://code.kliu.org/hashcheck/), which integrates with File Explorer and will generate md5 checksum files.
+    c. On OS X, use `md5` from the Terminal prompt
 3. Extract the zipfiles to a temporary directory (a default one is provided in this repo)
-4. Set the appropriate parameters in [01 import DI flat files and save.R](01 import DI flat files and save.R) (these are in all caps at the beginning of the file) and run
+4. Set the appropriate parameters in [01 import DI flat files and save.R](01 import DI flat files and save.R) (these are in all caps at the beginning of the file) and run the script.
 
 # Known issues
 
@@ -28,7 +27,6 @@ The are a few minor known issues at this point.
     b. Why, when run on Windows, does `readr::read_csv` find embedded nulls and save to file with import problems, but when run on Ubuntu using EC2 instance, it does not?
 2. High memory requirements
 3. The order that the DI documentation lists columns when the column type is specified is not exactly the same as when the description is specified. I am assuming that the order of the column type information is correct.
-4. 
 
 # Requirements
 
@@ -50,7 +48,7 @@ First, since the biggest memory requirement is involved in converting dates from
 1. Sign up for an Amazon EC2 account at <https://aws.amazon.com/ec2>
 2. Save your Amazon ssh key on your computer so you can log in to EC2 and add it to your ssh agent.
 3. RStudio Server is easy to set up by using one of the Amazon Machine Images (AMIs) provided at <http://www.louisaslett.com/RStudio_AMI/>
-4. Open a 61+Gb memory-optimized EC2 spot instance. 
+4. Open a 61+Gb memory-optimized EC2 spot instance. (Alternatively, one could open up a smaller instance, configure it, and save as a personalized AMI for use again in the future. Then one would relaunch it as a larger AMI.)
     - AMI > Select on your AMI > Under "Actions," select "Spot Request" > Request a big instance, and set the MAX price you are willing to pay per hour (This appears to be a uniform price auction, and the market price is usually much lower than this. I have found that a $1/hr maximum price is usually sufficient.)
     - Make sure to enable SSH and HTTP security protocols
 4. Start the EC2 instance
@@ -58,7 +56,7 @@ First, since the biggest memory requirement is involved in converting dates from
 6. Transfer DI files and code over SSH. You can either set up your ssh key for the `rstudio` user, or move project files to the root user via ssh and then transfer them to the `rstudio` home directory.
     - The first way can be accomplished with
     ```sh
-    tar cvz LOCAL_PROJECT_DIRECTORY/ | ssh ubunbtu@99.99.99.99.99 "cd [REMOTE_PROJECT_DIRECTORY] && tar xvz"
+    tar cvz LOCAL_PROJECT_DIRECTORY/ | ssh ubunbtu@99.99.99.99.99 "cd REMOTE_PROJECT_DIRECTORY && tar xvz"
     mv ~/REMOTE_PROJECT_DIRECTORY ../rstudio/REMOTE_PROJECT_DIRECTORY
     sudo chown rstudio - R ../rstudio/REMOTE_PROJECT_DIRECTORY
     ```
@@ -66,7 +64,7 @@ First, since the biggest memory requirement is involved in converting dates from
 7. Point your web browser to your EC2 IP address and login as user rstudio with password rstudio (I believe)
 8. Run the import scripts
 9. To move files from the remote EC2 instance to your local machine
-    a. it's probably best to use `rsync` to ensure files completely transferred:
+    a. it's probably best to use `rsync` which computes hashes of transferred files to check they are completely transferred:
         ```sh
         rsync -chavzP -f '- /*/*/' --stats rstudio@99.99.99.99:REMOTE_PROJECT_DIRECTORY/intermediate_data LOCAL_PROJECT_DIRECTORY/
         ```

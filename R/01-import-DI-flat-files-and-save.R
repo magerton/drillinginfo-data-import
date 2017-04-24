@@ -9,8 +9,8 @@
 
 rm(list=ls())
 
-# CONSTANTS
-DATE_DI_FILES <- "-2017-03-31"                # suffix for filenames with version of DI files
+# PARAMETERS
+DATE_DI_FILES <- "-2017-03-31"                # suffix for filenames with version/date of DI files
 DIR_RAW_TEXT  <- "./tmp/"                     # where DI text files reside
 DIR_SAVE_R    <- "./intermediate_data/"       # where to save .Rdata files
 DIR_SAVE_DTA  <- "./intermediate_data/dta/"   # where to save .dta files
@@ -31,7 +31,7 @@ library(R.utils)
 library(data.table)
 
 # load in the lightly formatted "DI Desktop Raw Data PLUS.docx" document
-source("R/Table Schema Definitions.R")
+source("R/Table-Schema-Definitions.R")
 
 # ------------------ read in schema definitions from DI documentation and conver to data frame -----------------
 
@@ -272,9 +272,3 @@ for (table_name in tbls) {
   rm(list=table_name)
   gc()
 }
-
-# # AFTER
-# rsync -chavzP -f '- /*/*/' --stats rstudio@184.72.195.76:tx-price-diffs/intermediate_data /d/projects/tx-price-diffs/
-
-
-

@@ -1,14 +1,22 @@
+# Ignore OS X "Desktop Services Store"
 **/.DS_Store
-.spyproject/**
+
+# Ignore R project files
 .Rproj.user
 .Rhistory
 *.Rproj
+
+# Ignore Sublime project files
 *.sublime-workspace
 *.sublime-project
+
+# ignore html files from Markdown rendering
 **.html
 
+# Don't include data directories in repo
 intermediate_data/**
 tmp/**
 
+# but DO always include readme files
 !**/README.md
 
