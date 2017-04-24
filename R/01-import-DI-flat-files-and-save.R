@@ -16,8 +16,8 @@ DIR_SAVE_R    <- "./intermediate_data/"       # where to save .Rdata files
 DIR_SAVE_DTA  <- "./intermediate_data/dta/"   # where to save .dta files
 
 # OPTIONS
-GZIP_DTA_FILES        <- FALSE  # should we gzip the .dta files
-USE_PIGZ              <- TRUE   # TRUE: use system command for parallel zip; FALSE: use R.utils::gzip
+GZIP_DTA_FILES        <- TRUE   # should we gzip the .dta files
+USE_PIGZ              <- TRUE   # TRUE: use system command for parallel gzip of dta files; FALSE: use R.utils::gzip
 REPLACE_DTA_WITH_GZIP <- TRUE   # whether to delete .dta files after gzipping
 NUM_ROWS              <- -1L    # number of rows to read in (-1L is all)
 COMPRESS              <- TRUE   # compress .Rdata files on base::save()?
@@ -176,7 +176,7 @@ problems <- lapply(tbls, function(TABLE_NAME){
   probs <- data.table(problems(eval(parse(text=table_name))))
   probs[, table := table_name]
   
-  # save to R
+  # save to R. Would be nice to use pigz or another compression algorithm to speed this up.
   cat(paste0(Sys.time(), " saving ", table_name, " as R\n"))
   save(list = table_name,
        file = paste0(DIR_SAVE_R,table_name, DATE_DI_FILES,".Rdata"),
@@ -236,7 +236,7 @@ for (c in names(col_labels)) {
   setattr(pden_prod[[c]], "label", col_labels[c])
 }
 
-# save to R
+# save to R. Would be nice to use pigz or another compression algorithm to speed this up.
 cat(paste0("saving ", table_name, " as R\n"))
 save(list = table_name, 
      file = paste0(DIR_SAVE_R, tolower(table_name), DATE_DI_FILES, ".Rdata"), 
