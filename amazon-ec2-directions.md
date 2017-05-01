@@ -20,11 +20,10 @@
 8. Run the import scripts
 9. To move files from the remote EC2 instance to your local machine
     a. it's probably best to use `rsync` which computes hashes of transferred files to check they are completely transferred. For example, if ssh is set up for user rstudio, one can run
-        ```sh
-        rsync -chavzP -f '- /*/*/' --stats rstudio@99.99.99.99:REMOTE_PROJECT_DIRECTORY/intermediate_data LOCAL_PROJECT_DIRECTORY/intermediate_data
-        rsync -chavzP -f '- /*/*/' --stats rstudio@99.99.99.99:REMOTE_PROJECT_DIRECTORY/intermediate_data/dta LOCAL_PROJECT_DIRECTORY/intermediate_data/dta
-
-        ```
+    ```sh
+    rsync -chavzP -f '- /*/*/' --stats rstudio@99.99.99.99:REMOTE_PROJECT_DIRECTORY/intermediate_data LOCAL_PROJECT_DIRECTORY/intermediate_data
+    rsync -chavzP -f '- /*/*/' --stats rstudio@99.99.99.99:REMOTE_PROJECT_DIRECTORY/intermediate_data/dta LOCAL_PROJECT_DIRECTORY/intermediate_data/dta
+    ```
     If ssh is not set up for the rstudio user, one can also move these files to the user ubuntu and then run the command.
 
     b. Can also use `tar` and `ssh` again: <http://meinit.nl/using-tar-and-ssh-to-efficiently-copy-files-preserving-permissions>

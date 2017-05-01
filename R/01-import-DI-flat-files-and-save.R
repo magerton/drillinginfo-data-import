@@ -2,7 +2,6 @@
 
 # Ingests unzipped DI Desktop Raw Data PLUS flat files
 # Saves to .Rdata and .dta (Stata 12) formats
-# SET 
 
 # Can run from the command line with 
 # "C:\Program Files\R\R-3.3.2\bin\Rscript.exe" "R\00a NEW initial import of data.R"
@@ -10,18 +9,19 @@
 rm(list=ls())
 
 # PARAMETERS
-DATE_DI_FILES <- "-2017-03-31"                # suffix for filenames with version/date of DI files
+DATE_DI_FILES <- "-2017-04-30"                # suffix for filenames with version/date of DI files
 DIR_RAW_TEXT  <- "./tmp/"                     # where DI text files reside
 DIR_SAVE_R    <- "./intermediate_data/"       # where to save .Rdata files
 DIR_SAVE_DTA  <- "./intermediate_data/dta/"   # where to save .dta files
 
 # OPTIONS
-GZIP_DTA_FILES        <- TRUE   # should we gzip the .dta files
-USE_PIGZ              <- TRUE   # TRUE: use system command for parallel gzip of dta files; FALSE: use R.utils::gzip
-REPLACE_DTA_WITH_GZIP <- TRUE   # whether to delete .dta files after gzipping
-NUM_ROWS              <- -1L    # number of rows to read in (-1L is all)
-COMPRESS              <- TRUE   # compress .Rdata files on base::save()?
-COMPRESSION_LEVEL     <- 4      # when saving .Rdata files
+CONVERT_PROD_CHARDATE_TO_DATE <- TRUE   # convert string to date for PDEN_PROD table? This increases RAM requirements above 32Gb
+GZIP_DTA_FILES                <- TRUE   # should we gzip the .dta files?
+USE_PIGZ                      <- TRUE   # TRUE: use system command for parallel gzip of dta files; FALSE: use R.utils::gzip
+REPLACE_DTA_WITH_GZIP         <- TRUE   # Delete .dta files after gzipping?
+NUM_ROWS                      <- -1L    # num rows to read for ea table (-1L is all. Change to positive integer for testing.)
+COMPRESS                      <- TRUE   # compress .Rdata files on base::save()?
+COMPRESSION_LEVEL             <- 4      # When saving .Rdata files
 
 # optionally install packages with
 # install.packages(c("haven", "lubridate", "readr", "R.utils", "data.table"))
@@ -226,9 +226,11 @@ pden_prod <- fread(  # use fread
       data.table = TRUE
 )
 
-# convert date column to date by reference
-cat(paste0(Sys.time(), " converting to Date col ", table_name, "\n"))
-pden_prod[, prod_date := as.Date(lubridate::parse_date_time(prod_date,'%y-%m-%d'))]
+# convert string date column to date by reference.
+if (CONVERT_PROD_CHARDATE_TO_DATE == TRUE) {
+  cat(paste0(Sys.time(), " converting to Date col ", table_name, "\n"))
+  pden_prod[, prod_date := as.Date(lubridate::parse_date_time(prod_date,'%y-%m-%d'))]
+}
 
 # add variable labels by reference
 cat(paste0(Sys.time(), " adding variable labels to ", table_name, "\n"))

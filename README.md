@@ -11,10 +11,14 @@ There are three R scripts:
 Workflow
 
 1. Clone this repo to your machine
-2. After downloading both zipfiles (perhaps to the folder [./tmp](./tmp)), verify their checksums against those in [checksums.md](checksums.md) to ensure complete download and verify the date of the DI flat files.
-    a. On Ubuntu, use `md5sum`
-    b. On Windows, there are a few 3rd party programs that compute hashes. One is [hashcheck](http://code.kliu.org/hashcheck/), which integrates with File Explorer and will generate md5 checksum files.
-    c. On OS X, use `md5` from the Terminal prompt
+2. Download both zipfiles via web interface or command line using `lftp`, available on [Homebrew](https://brew.sh/) for OS X, Cygwin for Windows 7, and the Ubuntu package manager for the Windows 10 Subsystem for Linux.
+    ```sh
+    lftp -u "USERNAME,PASSWORD" ftp://fileshare.drillinginfo.com -e "mirror --parallel=3 . ."
+    ```
+3. Verify zipfile checksums against those in [checksums.md](checksums.md) to ensure complete download and verify the date of the DI flat files.
+    a. Ubuntu `md5sum * > checksums.md5`
+    b. Windows: there are a few 3rd party programs that compute hashes. One is [hashcheck](http://code.kliu.org/hashcheck/), which integrates with File Explorer and will generate md5 checksum files.
+    c. OS X Terminal: `md5 * > checksums.md5`
 3. Extract the zipfiles to [./tmp](./tmp) or some other directory,. One can use the shell command `unzip` in OS X or Ubuntu.
 4. Set the appropriate parameters in [R/01-import-DI-flat-files-and-save.R](R/01-import-DI-flat-files-and-save.R) (these are in all caps at the beginning of the file) and run the script.
 
@@ -25,7 +29,7 @@ The are three known issues at this point.
 
 1. On Windows (but not Ubuntu), `readr::read_csv()` detects "Embedded nul" characters in several of the tables and throws associated warnings. These are all collected and saved in a separate .Rdata file. There are a couple of questions
     a. Are these characters supposed to be there? Why did DI include them?
-    b. Why, when run on Windows, does `readr::read_csv` find embedded nulls and save to file with import problems, but when run on Ubuntu using EC2 instance, it does not?
+    b. Why, when run on Windows, does `readr::read_csv` find embedded nulls, but when run on Ubuntu using EC2 instance, does it not?
 2. The order that the DI documentation lists columns when the column type is specified is not exactly the same as when the description is specified. I am assuming that the order of the column type information is correct.
 3. There is no table schema information for the file UIC.txt
 4. Can we get a longer history of md5 checksums for the DI Desktop Raw Data PLUS flat files? See [checksums.md](checksums.md)
@@ -33,7 +37,7 @@ The are three known issues at this point.
 There are also a few improvements that could be made:
 
 1. Lower the memory requirements. This code was run on an Amazon EC2 instance with 61 Gb RAM. See [amazon-ec2-directions.md](amazon-ec2-directions.md) for discussion of this
-2. Lower the hard disk requirements. This code was run on an Amazon EC2 instance with 200Gb of hard drive space and the repo with uncompressed .txt files plus all compressed .Rdata and .dta files was 46Gb. (This high requirement could be helped by unzipping, importing, and saving files one-by-one). 
+2. Lower the hard disk requirements. This code was run on an Amazon EC2 instance with 200Gb of hard drive space and the repo with uncompressed .txt files plus all compressed .Rdata and .dta files was 46Gb. (This high requirement could be helped by unzipping, importing, and saving files one-by-one. Files could also be saved in one format only.)
 3. Accelerate saving .Rdata files. One of the bottlenecks is saving the compressed .Rdata files. This could be sped up using the command-line parallel zip program `pigz` or using a different compression scheme like `xz`. For example [R documentation](https://stat.ethz.ch/R-manual/R-devel/library/base/html/save.html) for `base::save()` provides this example:
     ```R
     con <- pipe("pigz -p8 > fname.gz", "wb")
