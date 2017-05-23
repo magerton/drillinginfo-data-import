@@ -19,7 +19,7 @@ CONVERT_PROD_CHARDATE_TO_DATE <- TRUE   # convert string to date for PDEN_PROD t
 GZIP_DTA_FILES                <- TRUE   # should we gzip the .dta files?
 USE_PIGZ                      <- TRUE   # TRUE: use system command for parallel gzip of dta files; FALSE: use R.utils::gzip
 REPLACE_DTA_WITH_GZIP         <- TRUE   # Delete .dta files after gzipping?
-NUM_ROWS                      <- -1L    # num rows to read for ea table (-1L is all. Change to positive integer for testing.)
+NUM_ROWS                      <- -1L    # num rows to read for each table (-1L is all. Change to positive integer for testing.)
 COMPRESS                      <- TRUE   # compress .Rdata files on base::save()?
 COMPRESSION_LEVEL             <- 4      # When saving .Rdata files
 
@@ -35,7 +35,7 @@ library(data.table)
 # load in the lightly formatted "DI Desktop Raw Data PLUS.docx" document
 source("R/Table-Schema-Definitions.R")
 
-# ------------------ read in schema definitions from DI documentation and conver to data frame -----------------
+# ------------------ read in schema definitions from DI documentation and convert to data frame -----------------
 
 # make data.tables of column types & descriptions
 makedf <- function(x) data.frame(field = names(x), info = x, order = 1:length(x))
@@ -67,7 +67,7 @@ typs[table == "PERMITS"   & field == "FORM_"          , field := "FORM_3"]
 
 # ------------------ translate DI column types to R col types-----------------
 
-# merge tables with column types & descriptions on field name
+# merge tables with column types & descriptions on field name; preserving order of types
 column_info <- merge(typs, desc, by = c("table", "field"), all=T)[order(table, order.x)]
 rm(desc, typs)
 
