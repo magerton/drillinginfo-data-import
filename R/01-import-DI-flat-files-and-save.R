@@ -1,10 +1,11 @@
 # Code by Mark Agerton (2017-04)
+# Thanks to Ben Weintraut for reviewing code (2017-05)
 
 # Ingests unzipped DI Desktop Raw Data PLUS flat files
-# Saves to .Rdata and .dta (Stata 12) formats
+# Saves to .Rdata and .dta (Stata) formats
 
 # Can run from the command line with 
-# "C:\Program Files\R\R-3.3.2\bin\Rscript.exe" "R\00a NEW initial import of data.R"
+# "C:\Program Files\R\R-3.3.2\bin\Rscript.exe" "R\01-import-DI-flat-files-and-save.R"
 
 rm(list=ls())
 
@@ -14,16 +15,22 @@ DIR_RAW_TEXT  <- "./tmp/"                     # where DI text files reside
 DIR_SAVE_R    <- "./intermediate_data/"       # where to save .Rdata files
 DIR_SAVE_DTA  <- "./intermediate_data/dta/"   # where to save .dta files
 
-# OPTIONS
-CONVERT_PROD_CHARDATE_TO_DATE <- TRUE   # convert string to date for PDEN_PROD table? This increases RAM requirements above 32Gb
-GZIP_DTA_FILES                <- TRUE   # should we gzip the .dta files?
-USE_PIGZ                      <- TRUE   # TRUE: use system command for parallel gzip of dta files; FALSE: use R.utils::gzip
-REPLACE_DTA_WITH_GZIP         <- TRUE   # Delete .dta files after gzipping?
+# OPTIONS: import
+CONVERT_PROD_CHARDATE_TO_DATE <- TRUE   # convert string to date when importing PDEN_PROD table? This may RAM requirements above 16Gb
 NUM_ROWS                      <- -1L    # num rows to read for each table (-1L is all. Change to positive integer for testing.)
-COMPRESS                      <- TRUE   # compress .Rdata files on base::save()?
-COMPRESSION_LEVEL             <- 4      # When saving .Rdata files
 
-# optionally install packages with
+# OPTIONS: saving to R .Rdata
+COMPRESS                      <- TRUE   # compress .Rdata files on base::save()?
+COMPRESSION_LEVEL             <- 4      # Gzip compression level when saving .Rdata files
+
+# OPTIONS: saving to Stata .dta
+SAVE_TO_STATA                 <- TRUE   # After importing flat-files to R, save to Stata format?
+GZIP_DTA_FILES                <- TRUE   # should we gzip (compress) the .dta files?
+USE_PIGZ                      <- TRUE   # TRUE: use system command for parallel gzip of dta files; FALSE: use R.utils::gzip. Requies pigz to be on system path
+REPLACE_DTA_WITH_GZIP         <- TRUE   # Delete .dta files after gzipping?
+STATA_VERSION                 <- 12     # version of saved Stata .dta files
+
+# uncomment line below to install packages
 # install.packages(c("haven", "lubridate", "readr", "R.utils", "data.table"))
 
 library(haven)
@@ -50,8 +57,11 @@ typs[, variable := NULL]
 # fix names
 setnames(typs, "value", "oracle_type")
 setnames(desc, "value", "description")
-setnames(desc, "L1", "table")
 setnames(typs, "L1", "table")
+setnames(desc, "L1", "table")
+setnames(typs, "order", "order_col_desc")
+setnames(desc, "order", "order_col_type")
+
 
 # fix mispelled columns
 desc[table == "PDEN_DESC" & field == "LATEST_WNCT"    , field := "LATEST_WCNT"]
@@ -68,16 +78,23 @@ typs[table == "PERMITS"   & field == "FORM_"          , field := "FORM_3"]
 # ------------------ translate DI column types to R col types-----------------
 
 # merge tables with column types & descriptions on field name; preserving order of types
-column_info <- merge(typs, desc, by = c("table", "field"), all=T)[order(table, order.x)]
+column_info <- merge(typs, desc, by = c("table", "field"), all=T)[order(table, order_col_type)]
 rm(desc, typs)
 
 # are any fields unmatched??
-column_info[is.na(description) | is.na(oracle_type), .(field, table, order.x, order.y, is.na(description))]
+column_info[is.na(description) | is.na(oracle_type), .(field, table, order_col_type, order_col_desc, is.na(description))]
 
-# Does the order of the column types and descriptions provided in the DI document match?
-# If the data.table has non-zero length, then the order does NOT match. 
-# I am assuming that the order of columns in the column type definitions is correct
-column_info[order.x != order.y]
+# Does the order of the column types and later column-descriptions provided in the DI document match?
+# This is important because the raw flat-files do not have column names
+#     - order_col_type is the order of the columns in the FIRST part of the document that gives database field types
+#     - order_desc     is the order of the columsn in the SECOND part of the document that gives database field descriptions
+# We will assume that the order of columns in the column type definitions is correct
+setattr(column_info$order_col_type, "label", "Order column types listed in 'DI Desktop Raw Data PLUS.docx'")
+setattr(column_info$order_col_desc, "label", "Order column descriptions listed in 'DI Desktop Raw Data PLUS.docx'")
+
+
+# Show data columns where order of DI-provided column type & description information does not match
+column_info[order_col_type != order_col_desc]
 
 # assign R atomic types
 # column_info[,.N, keyby=.(oracle_type)]
@@ -123,12 +140,14 @@ for (tbl in names(to_factors)) {
 
 column_info[is.na(is_factor), is_factor := FALSE]
 
-# ------------------ save column_info -----------------
+# ------------------ save column_info to .Rdata & .csv -----------------
+
+col_order <- c("table", "field", "order_col_type", "order_col_desc", "oracle_type", "r_class", "readr_class", "is_factor", "description")
 
 save(column_info, file = paste0(DIR_SAVE_R, "/column_info.Rdata"))
+write_csv(column_info[ , .SD, .SDcols = col_order], path = paste0(DIR_SAVE_R, "/column_info.csv"))
 
 # ----------------- import all tables except PDEN_PROD -------------------- 
-# use readr::read_csv() to import because it deals with embedded nul characters
 
 tbls <- column_info[table != "PDEN_PROD", unique(table)]
 names(tbls) <- tbls
@@ -142,42 +161,47 @@ problems <- lapply(tbls, function(TABLE_NAME){
   col_names   <- column_info[(column_info$table == TABLE_NAME), tolower(field)]
   col_classes <- column_info[(column_info$table == TABLE_NAME), readr_class]
   col_labels  <- column_info[(column_info$table == TABLE_NAME), description]
+  factor_cols <- column_info[table == TABLE_NAME & is_factor == T, tolower(field)]
+  
   names(col_labels) <- col_names
 
-  # read in CSV using readr::read_csv() and convert to data.table
+  # read in CSV using readr::read_csv() because it reports any import problems
+  # Use non-standard evaluation so that we can use just one function for each tables
   cat(paste0(Sys.time(), " starting import of ", table_name, "\n"))
   assign(
     x = table_name,
-    value = data.table(read_csv(   # use read_csv()
+    value = read_csv(  
         file = file,
         n_max = NUM_ROWS,
         na = c("NA", "(N/A)"),
         locale = locale(encoding = "ISO-8859-1"),
         col_names = col_names,
         col_types = paste0(col_classes, collapse="")
-      )
   ))
-
-  cat(paste0(Sys.time(), " adding factors and labels ", table_name, "\n"))
+  
+  # get table of import problems & add table name
+  probs <- data.table(problems(eval(parse(text=table_name))))
+  probs[, table := table_name]
+  
+  # convert from tibble to data.table for easy updating in-place / by reference (versus copying)
+  cat(paste0(Sys.time(), " Convert ", table_name, " from tibble to data.table\n"))
+  setDT(eval(parse(text=table_name)))
   
   # update appropriate columns to factors BY REFERENCE using data.table so don't have to make copies in memory
-  factor_cols <- column_info[table == TABLE_NAME & is_factor == T, tolower(field)]
+  cat(paste0(Sys.time(), " converting factor variables in ", table_name, "\n"))
   for (fc in factor_cols) {
     eval(parse(text=table_name))[, (fc) := factor(get(fc))]
   }
   
   # set column labels by reference
+  cat(paste0(Sys.time(), " adding variable labels ", table_name, "\n"))
   for (c in names(col_labels)) {
     parsecol <- paste0(table_name, '[[ "', c, '" ]]')
     setattr(eval(parse(text=parsecol)), "label", col_labels[c])
   }
   
-  # get list of import problems
-  probs <- data.table(problems(eval(parse(text=table_name))))
-  probs[, table := table_name]
-  
   # save to R. Would be nice to use pigz or another compression algorithm to speed this up.
-  cat(paste0(Sys.time(), " saving ", table_name, " as R\n"))
+  cat(paste0(Sys.time(), " saving ", table_name, " as .Rdata\n"))
   save(list = table_name,
        file = paste0(DIR_SAVE_R,table_name, DATE_DI_FILES,".Rdata"),
        compress = COMPRESS, 
@@ -193,43 +217,69 @@ problems <- lapply(tbls, function(TABLE_NAME){
   return(probs)
 })
 
-# generate big list of import problems.
-# Why does Windows find embeded nulls but Unbuntu not??
+# Assemble data.table of any import problems thyat have come up.
 DI_import_problems <- do.call(rbind, problems)
-save(DI_import_problems, file = paste0(DIR_SAVE_R, "DI_import_problems", DATE_DI_FILES, ".Rdata"))
-gc()
 
-# ----------------- import PDEN_PROD -------------------- 
-# use data.table::fread() because it has lower memory usage (and is faster)
+if (nrow(DI_import_problems) > 0) {
+  
+  fn <- paste0(DIR_SAVE_R, "DI_import_problems", DATE_DI_FILES, ".Rdata")
+  cat(paste(Sys.time(), nrow(DI_import_problems), "possible parsing failures. Saving to", fn, "\n"))
+  save(DI_import_problems, file = fn)
+
+  } else {
+
+  cat(paste(Sys.time(), nrow(DI_import_problems), "parsing failures found.\n"))
+
+}
+
+# ----------------- import PDEN_PROD --------------------
 
 TABLE_NAME <- "PDEN_PROD"
-table_name <- tolower(TABLE_NAME)
-file <- paste0(DIR_RAW_TEXT, TABLE_NAME, ".txt")
-col_names   <- column_info[(column_info$table == TABLE_NAME), tolower(field)]
-col_classes <- column_info[(column_info$table == TABLE_NAME), r_class]
-col_labels  <- column_info[(column_info$table == TABLE_NAME), description]
+table_name <- "pden_prod"
+file <- paste0(DIR_RAW_TEXT, "PDEN_PROD.txt")
+col_names   <- column_info[table == "PDEN_PROD", tolower(field)]
+col_classes <- column_info[table == "PDEN_PROD", paste0(readr_class, collapse = "")]
+colClasses  <- column_info[table == "PDEN_PROD", r_class]
+col_labels  <- column_info[table == "PDEN_PROD", description]
 names(col_labels) <- col_names
 
-cat(paste0(Sys.time(), " starting import of ", table_name, "\n"))
-pden_prod <- fread(  # use fread
-      file = file,
-      nrows = NUM_ROWS,
-      header = FALSE,
-      verbose = TRUE,
-      stringsAsFactors = FALSE,
-      sep = ",",
-      colClasses = col_classes,
-      col.names = col_names,
-      na.strings = c("NA", "(N/A)"),
-      encoding = "Latin-1",
-      showProgress = TRUE,
-      data.table = TRUE
-)
-
-# convert string date column to date by reference.
 if (CONVERT_PROD_CHARDATE_TO_DATE == TRUE) {
-  cat(paste0(Sys.time(), " converting to Date col ", table_name, "\n"))
-  pden_prod[, prod_date := as.Date(lubridate::parse_date_time(prod_date,'%y-%m-%d'))]
+  
+  cat(paste0(Sys.time(), " starting import of ", table_name, " WITH date conversion\n"))
+  
+  # use read_csv because it converts character to date
+  pden_prod <- read_csv(
+    file = file,
+    n_max = NUM_ROWS,
+    na = c("NA", "(N/A)"),
+    locale = locale(encoding = "ISO-8859-1"),
+    col_names = col_names,
+    col_types = paste0(col_classes, collapse="")
+  )
+  
+  # convert from tibble to data.table for easy updating in-place / by reference (versus copying)
+  cat(paste0(Sys.time(), " Convert ", table_name, " from tibble to data.table\n"))
+  setDT(pden_prod)
+
+} else {
+  
+  cat(paste0(Sys.time(), " starting import of ", table_name, " WITHOUT date conversion\n"))
+  
+  # use fread because of lower memory requirements
+  pden_prod <- fread(
+        file = file,
+        nrows = NUM_ROWS,
+        header = FALSE,
+        verbose = TRUE,
+        stringsAsFactors = FALSE,
+        sep = ",",
+        colClasses = col_classes,
+        col.names = col_names,
+        na.strings = c("NA", "(N/A)"),
+        encoding = "Latin-1",
+        showProgress = TRUE,
+        data.table = TRUE
+  )
 }
 
 # add variable labels by reference
@@ -240,54 +290,55 @@ for (c in names(col_labels)) {
 
 # save to R. Would be nice to use pigz or another compression algorithm to speed this up.
 cat(paste0("saving ", table_name, " as R\n"))
-save(list = table_name, 
-     file = paste0(DIR_SAVE_R, tolower(table_name), DATE_DI_FILES, ".Rdata"), 
-     compress = COMPRESS, 
+save(pden_prod, 
+     file = paste0(DIR_SAVE_R, "pden_prod", DATE_DI_FILES, ".Rdata"),
+     compress = COMPRESS,
      compression_level = COMPRESSION_LEVEL
 )
 
 # clean up
-rm(list = table_name)
+rm(pden_prod)
 gc()
-
+ 
 # --------------- save to stata -------------------
 
-# # column info
-# load(file = paste0(DIR_SAVE_R, "/column_info.Rdata"))
+if (SAVE_TO_STATA == TRUE) {
 
-# all the tables
-tbls <- tolower( column_info[, unique(table)])
-
-for (table_name in tbls) {
-  # .Rdata files
-  f_in  <- paste0(DIR_SAVE_R,   table_name, DATE_DI_FILES, ".Rdata")
-  f_out <- paste0(DIR_SAVE_DTA, table_name, DATE_DI_FILES, ".dta")
+  # all the tables
+  tbls <- tolower( column_info[, unique(table)])
   
-  # load files
-  cat(paste0(Sys.time(), " loading ", table_name, "\n"))
-  load(f_in)
+  for (table_name in tbls) {
+    # .Rdata files
+    f_in  <- paste0(DIR_SAVE_R,   table_name, DATE_DI_FILES, ".Rdata")
+    f_out <- paste0(DIR_SAVE_DTA, table_name, DATE_DI_FILES, ".dta")
   
-  # write to Stata
-  cat(paste0(Sys.time(), " writing to stata ", table_name, "\n"))
-  haven::write_dta(eval(parse(text=table_name)), path=f_out, v=12)
+    # load files
+    cat(paste0(Sys.time(), " loading ", table_name, "\n"))
+    load(f_in)
   
-  # compress dta files?
-  if (GZIP_DTA_FILES == TRUE) {
-    cat(paste0(Sys.time(), " gzipping ", table_name, "\n"))
-    
-    if (USE_PIGZ == TRUE) {
-      system2(command = 'pigz',
-              args = paste(
-                ifelse(REPLACE_DTA_WITH_GZIP == TRUE, "", "--keep"), 
-                f_out
-              )
-      )
-    } else {
-      R.utils::gzip(filename = f_out, overwrite = TRUE, remove = REPLACE_DTA_WITH_GZIP)
+    # write to Stata using haven::write_dta()
+    cat(paste0(Sys.time(), " writing to stata ", table_name, "\n"))
+    write_dta(eval(parse(text=table_name)), path=f_out, v=STATA_VERSION)
+  
+    # compress dta files?
+    if (GZIP_DTA_FILES == TRUE) {
+      cat(paste0(Sys.time(), " gzipping ", table_name, "\n"))
+  
+      if (USE_PIGZ == TRUE) {
+        system2(command = 'pigz',
+                args = paste(
+                  ifelse(REPLACE_DTA_WITH_GZIP == TRUE, "", "--keep"),  # delete .dta after gzip?
+                  "--force",                                            # overwrite existing .gz files
+                  f_out                                                 # compressed file name
+                )
+        )
+      } else {
+        R.utils::gzip(filename = f_out, overwrite = TRUE, remove = REPLACE_DTA_WITH_GZIP)
+      }
     }
+  
+    cat(paste0(Sys.time(), " done. cleanup. ", table_name, "\n"))
+    rm(list=table_name)
+    gc()
   }
-
-  cat(paste0(Sys.time(), " done. cleanup. ", table_name, "\n"))
-  rm(list=table_name)
-  gc()
 }
