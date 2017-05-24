@@ -26,7 +26,7 @@ COMPRESSION_LEVEL             <- 4      # Gzip compression level when saving .Rd
 # OPTIONS: saving to Stata .dta
 SAVE_TO_STATA                 <- TRUE   # After importing flat-files to R, save to Stata format?
 GZIP_DTA_FILES                <- TRUE   # should we gzip (compress) the .dta files?
-USE_PIGZ                      <- TRUE   # TRUE: use system command for parallel gzip of dta files; FALSE: use R.utils::gzip. Requies pigz to be on system path
+USE_PIGZ                      <- FALSE  # TRUE: use system command for parallel gzip of dta files; FALSE: use R.utils::gzip. Requies pigz to be on system path
 REPLACE_DTA_WITH_GZIP         <- TRUE   # Delete .dta files after gzipping?
 STATA_VERSION                 <- 12     # version of saved Stata .dta files
 
@@ -62,7 +62,6 @@ setnames(desc, "L1", "table")
 setnames(typs, "order", "order_col_desc")
 setnames(desc, "order", "order_col_type")
 
-
 # fix mispelled columns
 desc[table == "PDEN_DESC" & field == "LATEST_WNCT"    , field := "LATEST_WCNT"]
 desc[table == "PDEN_DESC" & field == "YEILD"          , field := "YIELD"]
@@ -81,23 +80,11 @@ typs[table == "PERMITS"   & field == "FORM_"          , field := "FORM_3"]
 column_info <- merge(typs, desc, by = c("table", "field"), all=T)[order(table, order_col_type)]
 rm(desc, typs)
 
-# are any fields unmatched??
-column_info[is.na(description) | is.na(oracle_type), .(field, table, order_col_type, order_col_desc, is.na(description))]
-
-# Does the order of the column types and later column-descriptions provided in the DI document match?
-# This is important because the raw flat-files do not have column names
-#     - order_col_type is the order of the columns in the FIRST part of the document that gives database field types
-#     - order_desc     is the order of the columsn in the SECOND part of the document that gives database field descriptions
-# We will assume that the order of columns in the column type definitions is correct
+# The order of columns in the DI column type definitions (NOT column descriptions) corresponds to the flat-files
 setattr(column_info$order_col_type, "label", "Order column types listed in 'DI Desktop Raw Data PLUS.docx'")
 setattr(column_info$order_col_desc, "label", "Order column descriptions listed in 'DI Desktop Raw Data PLUS.docx'")
 
-
-# Show data columns where order of DI-provided column type & description information does not match
-column_info[order_col_type != order_col_desc]
-
 # assign R atomic types
-# column_info[,.N, keyby=.(oracle_type)]
 column_info[oracle_type == "DATE"                                     , r_class := "Date"]
 column_info[oracle_type %like% "NUMBER\\([456]\\)"                    , r_class := "integer"]
 column_info[oracle_type %like% "NUMBER\\([91]\\d?\\)" & is.na(r_class), r_class := "numeric"]
@@ -112,9 +99,6 @@ column_info[ r_class == "Date"     , readr_class := "D"]
 column_info[ r_class == "integer"  , readr_class := "i"]
 column_info[ r_class == "numeric"  , readr_class := "d"]
 column_info[ r_class == "character", readr_class := "c"]
-
-# # anything not classified?
-# column_info[is.na(r_class) | is.na(readr_class), .N, keyby=.(oracle_type, r_class)]
 
 # ------------------ which columns should be factors (to save space) -----------------
 
