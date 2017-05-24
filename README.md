@@ -1,12 +1,12 @@
 # Overview
 
-This repo contains code to verify the version of Drillinginfo's DI Desktop Raw PLUS flat files and import them to R and Stata formats (.Rdata and .dta) using R. Memory requirements are 16Gb for the code to run, and possibly more if dates are converted from `character` to `Date`.
+This repo contains code to verify the version of Drillinginfo's DI Desktop Raw PLUS flat files and import them to R and Stata formats (.Rdata and .dta) using R.
 
 # Requirements
 
 These scripts are written in R. The required R packages can be installed with `install.packages(c("haven", "lubridate", "readr", "R.utils", "data.table"))`. 
 
-The DI flat-files are fairly large and have corresponding RAM requirements to load in memory. While every effort has been made to be efficient with memory by using R's `data.table` package and fast CSV readers `data.table::fread()` and `readr::read_csv()`, the code requires 16Gb of RAM to read in all tables, and possibly more if dates in the production data table (PDEN_PROD.txt) are to be converted from string to date. Whether this conversion is done or not is determined by the flag `CONVERT_PROD_CHARDATE_TO_DATE`.
+The DI flat-files are fairly large and have corresponding RAM requirements to load in memory. While every effort has been made to be efficient with memory by using R's `data.table` package and fast CSV readers `data.table::fread()` and `readr::read_csv()`, the code requires 16Gb of RAM to read in all tables. Converting production dates from `character` to `Date` in the PDEN_PROD table may increase memory requirements. This conversion can be skipped by setting the flag `CONVERT_PROD_CHARDATE_TO_DATE <- FALSE`.
 
 If writing data to Stata's .dta format (set this with `SAVE_TO_STATA`), one can optionally gzip the .dta files and save considerable hard drive space. Zipping can be accelerated by using the parallelized gzip command-line program [pigz](http://zlib.net/pigz/) instead of `R.utils::gzip()`. Using pigz requires that the command be on the system path.
 

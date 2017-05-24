@@ -16,7 +16,7 @@ DIR_SAVE_R    <- "./intermediate_data/"       # where to save .Rdata files
 DIR_SAVE_DTA  <- "./intermediate_data/dta/"   # where to save .dta files
 
 # OPTIONS: import
-CONVERT_PROD_CHARDATE_TO_DATE <- TRUE   # convert string to date when importing PDEN_PROD table? This may RAM requirements above 16Gb
+CONVERT_PROD_CHARDATE_TO_DATE <- TRUE   # convert string to date when importing PDEN_PROD table? This seems to increase RAM requirements
 NUM_ROWS                      <- -1L    # num rows to read for each table (-1L is all. Change to positive integer for testing.)
 
 # OPTIONS: saving to R .Rdata
