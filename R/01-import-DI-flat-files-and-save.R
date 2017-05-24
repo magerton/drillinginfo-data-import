@@ -1,5 +1,5 @@
 # Code by Mark Agerton (2017-04)
-# Edits by Ben Weintraut
+# Thanks to Ben Weintraut for reviewing code (2017-05)
 
 # Ingests unzipped DI Desktop Raw Data PLUS flat files
 # Saves to .Rdata and .dta (Stata) formats
@@ -10,22 +10,27 @@
 rm(list=ls())
 
 # PARAMETERS
-DATE_DI_FILES <- "-2017-03-31"                # suffix for filenames with version/date of DI files
+DATE_DI_FILES <- "-2017-04-30"                # suffix for filenames with version/date of DI files
 DIR_RAW_TEXT  <- "./tmp/"                     # where DI text files reside
 DIR_SAVE_R    <- "./intermediate_data/"       # where to save .Rdata files
 DIR_SAVE_DTA  <- "./intermediate_data/dta/"   # where to save .dta files
 
-# OPTIONS
-CONVERT_PROD_CHARDATE_TO_DATE <- TRUE   # convert string to date when importing PDEN_PROD table? This increases RAM requirements to somewhere between 16 and 32Gb
-GZIP_DTA_FILES                <- TRUE   # should we gzip the .dta files?
-USE_PIGZ                      <- TRUE   # TRUE: use system command for parallel gzip of dta files; FALSE: use R.utils::gzip
-REPLACE_DTA_WITH_GZIP         <- TRUE   # Delete .dta files after gzipping?
+# OPTIONS: import
+CONVERT_PROD_CHARDATE_TO_DATE <- TRUE   # convert string to date when importing PDEN_PROD table? This may RAM requirements above 16Gb
 NUM_ROWS                      <- -1L    # num rows to read for each table (-1L is all. Change to positive integer for testing.)
+
+# OPTIONS: saving to R .Rdata
 COMPRESS                      <- TRUE   # compress .Rdata files on base::save()?
 COMPRESSION_LEVEL             <- 4      # Gzip compression level when saving .Rdata files
+
+# OPTIONS: saving to Stata .dta
+SAVE_TO_STATA                 <- TRUE   # After importing flat-files to R, save to Stata format?
+GZIP_DTA_FILES                <- TRUE   # should we gzip (compress) the .dta files?
+USE_PIGZ                      <- TRUE   # TRUE: use system command for parallel gzip of dta files; FALSE: use R.utils::gzip. Requies pigz to be on system path
+REPLACE_DTA_WITH_GZIP         <- TRUE   # Delete .dta files after gzipping?
 STATA_VERSION                 <- 12     # version of saved Stata .dta files
 
-# optionally install packages with
+# uncomment line below to install packages
 # install.packages(c("haven", "lubridate", "readr", "R.utils", "data.table"))
 
 library(haven)
@@ -297,39 +302,43 @@ gc()
  
 # --------------- save to stata -------------------
 
-# all the tables
-tbls <- tolower( column_info[, unique(table)])
+if (SAVE_TO_STATA == TRUE) {
 
-for (table_name in tbls) {
-  # .Rdata files
-  f_in  <- paste0(DIR_SAVE_R,   table_name, DATE_DI_FILES, ".Rdata")
-  f_out <- paste0(DIR_SAVE_DTA, table_name, DATE_DI_FILES, ".dta")
-
-  # load files
-  cat(paste0(Sys.time(), " loading ", table_name, "\n"))
-  load(f_in)
-
-  # write to Stata using haven::write_dta()
-  cat(paste0(Sys.time(), " writing to stata ", table_name, "\n"))
-  write_dta(eval(parse(text=table_name)), path=f_out, v=STATA_VERSION)
-
-  # compress dta files?
-  if (GZIP_DTA_FILES == TRUE) {
-    cat(paste0(Sys.time(), " gzipping ", table_name, "\n"))
-
-    if (USE_PIGZ == TRUE) {
-      system2(command = 'pigz',
-              args = paste(
-                ifelse(REPLACE_DTA_WITH_GZIP == TRUE, "", "--keep"),
-                f_out
-              )
-      )
-    } else {
-      R.utils::gzip(filename = f_out, overwrite = TRUE, remove = REPLACE_DTA_WITH_GZIP)
+  # all the tables
+  tbls <- tolower( column_info[, unique(table)])
+  
+  for (table_name in tbls) {
+    # .Rdata files
+    f_in  <- paste0(DIR_SAVE_R,   table_name, DATE_DI_FILES, ".Rdata")
+    f_out <- paste0(DIR_SAVE_DTA, table_name, DATE_DI_FILES, ".dta")
+  
+    # load files
+    cat(paste0(Sys.time(), " loading ", table_name, "\n"))
+    load(f_in)
+  
+    # write to Stata using haven::write_dta()
+    cat(paste0(Sys.time(), " writing to stata ", table_name, "\n"))
+    write_dta(eval(parse(text=table_name)), path=f_out, v=STATA_VERSION)
+  
+    # compress dta files?
+    if (GZIP_DTA_FILES == TRUE) {
+      cat(paste0(Sys.time(), " gzipping ", table_name, "\n"))
+  
+      if (USE_PIGZ == TRUE) {
+        system2(command = 'pigz',
+                args = paste(
+                  ifelse(REPLACE_DTA_WITH_GZIP == TRUE, "", "--keep"),  # delete .dta after gzip?
+                  "--force",                                            # overwrite existing .gz files
+                  f_out                                                 # compressed file name
+                )
+        )
+      } else {
+        R.utils::gzip(filename = f_out, overwrite = TRUE, remove = REPLACE_DTA_WITH_GZIP)
+      }
     }
+  
+    cat(paste0(Sys.time(), " done. cleanup. ", table_name, "\n"))
+    rm(list=table_name)
+    gc()
   }
-
-  cat(paste0(Sys.time(), " done. cleanup. ", table_name, "\n"))
-  rm(list=table_name)
-  gc()
 }

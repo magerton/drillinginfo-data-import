@@ -1,12 +1,14 @@
 # Overview
 
-This repo contains code to verify the version of Drillinginfo's DI Desktop Raw PLUS flat files and import them to R and Stata formats (.Rdata and .dta) using R. Memory requirements are 16Gb for the code to run, and 32Gb if dates are converted from `character` to `Date`. See the [Requirements](#requirements) section for more on this.
+This repo contains code to verify the version of Drillinginfo's DI Desktop Raw PLUS flat files and import them to R and Stata formats (.Rdata and .dta) using R. Memory requirements are 16Gb for the code to run, and possibly more if dates are converted from `character` to `Date`.
 
 # Requirements
 
-This repo is written in R. The required packages can be installed with `install.packages(c("haven", "lubridate", "readr", "R.utils", "data.table"))`. If writing data to Stata's .dta format, one can optionally gzip the .dta files and save considerable hard drive space. Zipping can be accelerated by optionally using the parallelized gzip command-line program `pigz` instead of `R.utils::gzip()`. `pigz` is optionally invoked from R using `system2()` if it is on the system path.
+These scripts are written in R. The required R packages can be installed with `install.packages(c("haven", "lubridate", "readr", "R.utils", "data.table"))`. 
 
-The DI flat-files are fairly large and have the corresponding RAM requirements to load in memory. While every effort has been made to be efficient with memory by using R's `data.table` package and fast CSV readers `data.table::fread()` and `readr::read_csv()`, the code requires 16Gb of RAM to read in all tables, and 32Gb if dates in the production data table (PDEN_PROD) are to be converted from string to date. Whether this conversion is done or not is determined by the flag `CONVERT_PROD_CHARDATE_TO_DATE`.
+The DI flat-files are fairly large and have corresponding RAM requirements to load in memory. While every effort has been made to be efficient with memory by using R's `data.table` package and fast CSV readers `data.table::fread()` and `readr::read_csv()`, the code requires 16Gb of RAM to read in all tables, and possibly more if dates in the production data table (PDEN_PROD.txt) are to be converted from string to date. Whether this conversion is done or not is determined by the flag `CONVERT_PROD_CHARDATE_TO_DATE`.
+
+If writing data to Stata's .dta format (set this with `SAVE_TO_STATA`), one can optionally gzip the .dta files and save considerable hard drive space. Zipping can be accelerated by using the parallelized gzip command-line program [pigz](http://zlib.net/pigz/) instead of `R.utils::gzip()`. Using pigz requires that the command be on the system path.
 
 # Using the scripts
 
@@ -26,4 +28,4 @@ The DI flat-files are fairly large and have the corresponding RAM requirements t
 
 1. [Table-Schema-Definitions.R](R/Table-Schema-Definitions.R) contains a re-formatted version of the DI-provided document Oracle-database table schema and descriptions of each field. It saves this information as lists of named string vectors. Imported column names and types are based on this information
 2. [R/01-import-DI-flat-files-and-save.R](R/01-import-DI-flat-files-and-save.R) Imports unzipped csv files, converts columns as needed, adds column labels, and saves as both `data.table` objects in .Rdata files and Stata .dta data files.
-3. [R/02-open-saved-DI-flat-files.R](R/02-open-saved-DI-flat-files.R) Post-import script opens up each saved file (including import problems) and prints class of each column in each table. Not needed.
+3. [R/02-open-saved-DI-flat-files.R](R/02-open-saved-DI-flat-files.R) Post-import script opens up each saved file (including import problems) and prints class of each column in each table. For reference only.

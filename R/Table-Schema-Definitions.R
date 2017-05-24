@@ -1,5 +1,6 @@
 # Code by Mark Agerton (2017-04)
-# 
+# Review by Ben Weintraut (2017-05)
+ 
 # This file is simply the information in "DI Desktop Raw Data PLUS.docx", which has save date 2016-03-29 and md5 checksum ff6431ff19845965914bf414f00f4740. 
 # The information IS NOT CHANGED with the exception of wrapping commands in a list structure. We use this information to import and format the DI flat-files
 
