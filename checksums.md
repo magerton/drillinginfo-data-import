@@ -1,7 +1,5 @@
 # Checksums
 
-**COULD DRILLINGINFO PROVIDE A HISTORY OF CHECKSUMS?**
-
 | Release Date | File                           | md5 checksum                     |
 | ------------ | ------------------------------ | -------------------------------- |
 | 2017-04-30   | *dihpdi_plus_other_PRIMARY.zip | 80098da02dce6dcae3d7ff76da0e7b08 |
